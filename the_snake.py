@@ -49,26 +49,29 @@ class GameObject:
 
     def draw(self):
         """Базовый метод отрисовки.
+
         В последствии будет переназначен.
         """
-        pass
+        raise NotImplementedError("Метод переопределяется в дочерних классах.")
 
 
 class Apple(GameObject):
     """Дочерний класс яблоко."""
 
-    def __init__(self):
+    def __init__(self, body_color=APPLE_COLOR):
         """Инициализация."""
         super().__init__()
-        self.randomize_position()
-        self.body_color = APPLE_COLOR
+        self.body_color = body_color
+        self.randomize_position([])
 
-    def randomize_position(self):
+    def randomize_position(self, snake_position):
         """Позиция элемента."""
         self.position = (
-            randint(0, GRID_WIDTH) * GRID_SIZE,
-            randint(0, GRID_HEIGHT) * GRID_SIZE,
+            randint(0, GRID_WIDTH - 1) * GRID_SIZE,
+            randint(0, GRID_HEIGHT - 1) * GRID_SIZE,
         )
+        while self.position in snake_position:
+            return self.position
 
     def draw(self):
         """Отрисовка элемента."""
@@ -83,14 +86,14 @@ class Apple(GameObject):
 class Snake(GameObject):
     """Дочерний класс змея."""
 
-    def __init__(self) -> None:
+    def __init__(self, body_color=SNAKE_COLOR) -> None:
         """Инициализация."""
         super().__init__()
         self.length = 1
-        self.positions = [(self.position[0], self.position[0])]
+        self.positions = [(self.position[0], self.position[1])]
         self.direction = RIGHT
         self.next_direction = None
-        self.body_color = SNAKE_COLOR
+        self.body_color = body_color
         self.last = None
 
     def get_head_position(self):
@@ -104,11 +107,7 @@ class Snake(GameObject):
             self.next_direction = None
 
     def move(self):
-        """Обновляет позицию змейки (координаты каждой секции),
-        добавляя новую голову в начало списка positions
-        и удаляя последний элемент,
-        если длина змейки не увеличилась.
-        """
+        """Обновляет позицию змейки."""
         self.update_direction()
         start_head_position = self.get_head_position()
         x, y = self.direction
@@ -116,13 +115,9 @@ class Snake(GameObject):
             (start_head_position[0] + x * GRID_SIZE) % SCREEN_WIDTH,
             (start_head_position[1] + y * GRID_SIZE) % SCREEN_HEIGHT,
         )
-
-        if new_head in self.positions[2:]:
-            self.reset()
-        else:
-            self.positions.insert(0, new_head)
-            if len(self.positions) > self.length:
-                self.last = self.positions.pop()
+        self.positions.insert(0, new_head)
+        if len(self.positions) > self.length:
+            self.last = self.positions.pop()
 
     def draw(self):
         """Метод отрисовки змеи."""
@@ -144,8 +139,10 @@ class Snake(GameObject):
     def reset(self):
         """Сбрасывает змейку в начальное состояние после столкновения."""
         self.length = 1
-        self.positions = [(self.position[0], self.position[0])]
-        screen.fill(BOARD_BACKGROUND_COLOR)
+        self.direction = RIGHT
+        self.next_direction = None
+        self.positions = [(self.position[0], self.position[1])]
+        self.last = None
 
 
 def handle_keys(game_object):
@@ -167,10 +164,7 @@ def handle_keys(game_object):
 
 def main():
     """Основная логика."""
-    # Инициализация PyGame:
     pygame.init()
-
-    # Тут нужно создать экземпляры классов.
     apple = Apple()
     snake = Snake()
 
@@ -178,10 +172,12 @@ def main():
         clock.tick(SPEED)
         handle_keys(snake)
         snake.move()
-
         if snake.get_head_position() == apple.position:
             snake.length += 1
-            apple.randomize_position()
+            screen.fill(BOARD_BACKGROUND_COLOR)
+            apple.randomize_position(snake.position)
+        elif snake.get_head_position() in snake.positions[2:]:
+            snake.reset()
             screen.fill(BOARD_BACKGROUND_COLOR)
 
         apple.draw()
